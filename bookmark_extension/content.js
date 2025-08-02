@@ -1,0 +1,1 @@
+console.log("I works for book mark extension thing")

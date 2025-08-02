@@ -1,0 +1,17 @@
+{
+    "manifest_version": 3,
+    "name": "BookMark Extension",
+    "version": "1.0",
+    "description": "Build a extension that helps to manage your webpages and notes",
+    "actions":{
+        "default_popup": "popup.html"
+    },
+
+    "content_scripts": [
+        {
+            "matches": ["<all_urls>"],
+            "js": ["content.js"]
+        }
+    ],
+    "permissions": ["storage"]
+}
