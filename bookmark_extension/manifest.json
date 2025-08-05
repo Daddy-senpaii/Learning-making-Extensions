@@ -3,7 +3,7 @@
     "name": "BookMark Extension",
     "version": "1.0",
     "description": "Build a extension that helps to manage your webpages and notes",
-    "actions":{
+    "action":{
         "default_popup": "popup.html"
     },
 
@@ -13,5 +13,8 @@
             "js": ["content.js"]
         }
     ],
+    "background":{
+        "service_worker": "background.js"
+    },
     "permissions": ["storage"]
 }
