@@ -3,6 +3,9 @@ chrome.runtime.onInstalled.addListener(()=> {
 })
 
 chrome.runtime.onMessage.addListener((data)=> {
-    console.log(data);
+    console.log(data.message);
+    if (data.action === "GroupTabs"){
+        console.log("let's now group the tab");
+    }
 
 })
