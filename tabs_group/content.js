@@ -1,0 +1,1 @@
+console.log("Right now no need for content.js");
