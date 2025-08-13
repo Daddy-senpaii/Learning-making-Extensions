@@ -1,57 +1,90 @@
-chrome.runtime.onInstalled.addListener(()=> {
+chrome.runtime.onInstalled.addListener(() => {
     console.log("First time installed Successfully");
-})
+});
 
-chrome.runtime.onMessage.addListener((data, sender, sendResponse)=>{
-    const {tabName, pageDescription} = data;
+chrome.runtime.onMessage.addListener((data, sender, sendResponse) => {
+    console.log("message data is ", data);
+
+    const { tabName, pageDescription } = data;
     console.log(`The tab name is ${tabName} and description about page is ${pageDescription}`);
 
-    try {
-    // Get the currently active tab in the current window
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabData) => {
-        console.log(tabData);
+    if (data.action === "Delete Bookmark") {
+        console.log("Message Passed down is Delete the bookmark of id", data.id);
+        const deletedId = data.id;
 
-        // Destructure the first tab from the tabData array
-        const [tabInfo] = tabData;
-        const { id, url } = tabInfo;
+        try {
+            chrome.storage.local.get(["bookmarks"], (results) => {
+                console.log("For deleted bookmarks we have", results);
 
-        // Get bookmarks from storage
-        chrome.storage.local.get(["bookmarks"], (results) => {
-            const bookmarks = results.bookmarks || [];
+                const found_Index = results.bookmarks.findIndex(result => result.id === deletedId);
+                console.log("Deleted_Index found at:", found_Index);
 
-            // Assuming tabName and bookMarkDescription are defined somewhere (maybe from form input?)
-            const newBookmark = {
-                bookMarkName: tabName,
-                bookMarkDescription: pageDescription,
-                tabId: id,
-                bookMarkUrl: url,
-            };
+                if (found_Index !== -1) {
+                    results.bookmarks.splice(found_Index, 1);
 
-            // Push the new bookmark to the array
-            bookmarks.push(newBookmark);
+                    chrome.storage.local.set({ bookmarks: results.bookmarks }, () => {
+                        console.log("deleted successfully");
 
-            // Save the updated bookmarks array back to local storage
-            chrome.storage.local.set({ bookmarks }, () => {
-                console.log("Bookmark added successfully!");
+                        // Send response back to popup.js
+                        sendResponse({
+                            response: "Bookmark deleted successfully",
+                            data: results.bookmarks
+                        });
+                    });
+                } else {
+                    sendResponse({
+                        response: "Bookmark not found",
+                        data: results.bookmarks
+                    });
+                }
             });
-            
-//             chrome.storage.local.get(["bookmarks"],(results)=> {
-//     console.log("results are ",results);
-// })
-        });
-    });
-} catch (error) {
-    console.error("Something went wrong:", error);
-}
+        } catch (error) {
+            console.error("We have some error.", error);
+            sendResponse({ response: "Error deleting bookmark" });
+        }
 
-    sendResponse({
-        response: "We are good to go"
-    });
-})
-
-chrome.storage.onChanged.addListener((changes , areaName)=> {
-    if(areaName === "local" && changes.bookmarks){
-        console.log(changes.bookmarks.newValue);
+        return true; // Keep the message channel open for async
     }
-})
 
+    // Default case: Add bookmark
+    try {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabData) => {
+            console.log(tabData);
+
+            const [tabInfo] = tabData;
+            const { id, url } = tabInfo;
+
+            chrome.storage.local.get(["bookmarks"], (results) => {
+                const bookmarks = results.bookmarks || [];
+
+                const newBookmark = {
+                    id: bookmarks.length + 1,
+                    bookMarkName: tabName,
+                    bookMarkDescription: pageDescription,
+                    tabId: id,
+                    bookMarkUrl: url,
+                };
+
+                bookmarks.push(newBookmark);
+
+                chrome.storage.local.set({ bookmarks }, () => {
+                    sendResponse({
+                        response: "Bookmark added successfully",
+                        data: bookmarks
+                    });
+                });
+            });
+        });
+    } catch (error) {
+        console.error("Something went wrong:", error);
+        sendResponse({ response: "Error adding bookmark" });
+    }
+
+    return true; // Keep channel open for async operations
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === "local" && changes.bookmarks) {
+        console.log("onUpdate code", changes.bookmarks.newValue);
+    }
+});
