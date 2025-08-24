@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Screen Capture Tool</title>
+  <style>
+    canvas {
+      display: block;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Welcome to the Screen Shot Tool</h1>
+  <button id="CaptureWhole">Capture the Whole Screen</button>
+  <button id="captureSpecific">Capture Specific Area</button>
+
+  <script>
+    const WholeScreen = document.getElementById("CaptureWhole");
+    const SpecificScreen = document.getElementById("captureSpecific");
+
+    // ====================
+    // WHOLE SCREEN CAPTURE
+    // ====================
+    WholeScreen.addEventListener("click", async () => {
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+
+        const video = document.createElement("video");
+        video.srcObject = stream;
+        video.play();
+
+        video.onloadedmetadata = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          document.body.appendChild(canvas);
+
+          stream.getTracks().forEach(track => track.stop());
+        };
+      } catch (err) {
+        console.error("Error capturing screen:", err);
+      }
+    });
+
+    // ============================
+    // SPECIFIC AREA SCREEN CAPTURE
+    // ============================
+    SpecificScreen.addEventListener("click", async () => {
+      console.log("Capturing specific area...");
+
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+
+        const video = document.createElement("video");
+        video.srcObject = stream;
+        video.play();
+
+        // Base video canvas
+        const canvas = document.createElement("canvas");
+        canvas.width = 800;
+        canvas.height = 800;
+        canvas.style.border = "2px solid black";
+        canvas.style.position = "relative";
+        document.body.appendChild(canvas);
+
+        const ctx = canvas.getContext("2d");
+
+        // Overlay canvas for drawing rectangles
+        const overlay = document.createElement("canvas");
+        overlay.width = 800;
+        overlay.height = 800;
+        overlay.style.position = "absolute";
+        overlay.style.top = canvas.offsetTop + "px";
+        overlay.style.left = canvas.offsetLeft + "px";
+        overlay.style.border = "2px solid black";
+        document.body.appendChild(overlay);
+
+        const octx = overlay.getContext("2d");
+
+        // Continuously draw video frames
+        function drawFrame() {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          requestAnimationFrame(drawFrame);
+        }
+
+        video.onplaying = () => {
+          drawFrame();
+        };
+
+        // Rectangle drawing logic
+        const rectangles = [];
+        let startX, startY, isDragging = false;
+
+        overlay.addEventListener("mousedown", (event) => {
+          startX = event.offsetX;
+          startY = event.offsetY;
+          isDragging = true;
+        });
+
+        overlay.addEventListener("mousemove", (event) => {
+          if (isDragging) {
+            const currentX = event.offsetX;
+            const currentY = event.offsetY;
+
+            const rectX = Math.min(currentX, startX);
+            const rectY = Math.min(currentY, startY);
+            const rectWidth = Math.abs(currentX - startX);
+            const rectHeight = Math.abs(currentY - startY);
+
+            octx.clearRect(0, 0, overlay.width, overlay.height);
+
+            // Draw existing saved rectangles
+            drawAll(octx, ctx, rectangles);
+
+            // Draw the live rectangle
+            octx.setLineDash([6]);
+            octx.lineWidth = 2;
+            octx.strokeStyle = "red";
+            octx.strokeRect(rectX, rectY, rectWidth, rectHeight);
+          }
+        });
+
+        overlay.addEventListener("mouseup", (event) => {
+          isDragging = false;
+          const endX = event.offsetX;
+          const endY = event.offsetY;
+
+          const rectX = Math.min(startX, endX);
+          const rectY = Math.min(startY, endY);
+          const rectWidth = Math.abs(endX - startX);
+          const rectHeight = Math.abs(endY - startY);
+
+          rectangles.push({ x: rectX, y: rectY, width: rectWidth, height: rectHeight });
+
+          octx.clearRect(0, 0, overlay.width, overlay.height);
+          drawAll(octx, ctx, rectangles);
+        });
+
+      } catch (error) {
+        console.error("We have an error right now:", error);
+      }
+    });
+
+    // Helper to draw all saved rectangles and extract them
+    function drawAll(octx, ctx, rectangles) {
+      octx.setLineDash([6]);
+      octx.lineWidth = 2;
+      octx.strokeStyle = "red";
+
+      rectangles.forEach(r => {
+        // draw the red rectangle on overlay
+        octx.strokeRect(r.x, r.y, r.width, r.height);
+
+        // create a temp canvas to copy the region from video canvas
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = r.width;
+        tempCanvas.height = r.height;
+
+        const tctx = tempCanvas.getContext("2d");
+
+        // copy the region from the video canvas
+        tctx.drawImage(
+          ctx.canvas,     // source: the video canvas
+          r.x, r.y, r.width, r.height,
+          0, 0, r.width, r.height
+        );
+
+        // turn it into an image
+        const img = new Image();
+        img.src = tempCanvas.toDataURL();
+
+        // append to DOM
+        document.body.appendChild(img);
+      });
+    }
+  </script>
+</body>
+</html>
